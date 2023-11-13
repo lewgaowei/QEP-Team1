@@ -34,6 +34,7 @@ class Ui_MainWindow(object):
         self.show_query_plan = QtWidgets.QPushButton(self.centralwidget)
         self.show_query_plan.setGeometry(QtCore.QRect(640, 190, 141, 51))
         self.show_query_plan.setObjectName("show_query_plan")
+        self.show_query_plan.clicked.connect(self.fqep)
         self.btest_connection = QtWidgets.QPushButton(self.centralwidget)
         self.btest_connection.setGeometry(QtCore.QRect(640, 70, 141, 51))
         self.btest_connection.setObjectName("Test DB Connection")
@@ -94,7 +95,23 @@ class Ui_MainWindow(object):
             msg.setWindowTitle("Task Fail")
             msg.setText("Can't connect to DB. Pls UPDATE \"db_config.json\" with correct credentials")  
         msg.exec_()
-        
+    
+    # Draw Query Execution Plan
+    def fqep(self):
+        db_connection, cursor = connect_to_db()
+        #print(db_connection, cursor)
+        msg = QMessageBox()
+        # if can connect to DB
+        if db_connection and cursor:
+            msg.setWindowTitle("Task Complete")
+            msg.setText("Draw execution plan HERE")
+            print(get_query_plan(cursor, "SELECT * from nation, customer;"))
+            close_db_connection(db_connection, cursor)
+        else:
+            msg.setWindowTitle("Task Fail")
+            msg.setText("Can't connect to DB. Pls UPDATE \"db_config.json\" with correct credentials")  
+        msg.exec_()
+    
 
 if __name__ == "__main__":
     import sys
