@@ -1,0 +1,6 @@
+{
+    "host"      : "localhost",
+    "db_name"   : "TPC-H",
+    "user"      : "postgres",
+    "password"  : "password123"
+}
