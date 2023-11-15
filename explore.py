@@ -63,6 +63,8 @@ def get_block_size(cursor):
    cursor.execute('show block_size;')
    return cursor.fetchall()[0][0]
 
+def get_blocks(cursor, table_names, query):
+    pass
 
 ######################
 ## Helper Functions ##
