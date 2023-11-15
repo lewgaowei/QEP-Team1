@@ -1,5 +1,6 @@
 import json
 import psycopg2
+from sql_metadata import Parser
 
 # Load database credentials from JSON file
 with open('db_config.json') as json_file:
@@ -63,8 +64,65 @@ def get_block_size(cursor):
    cursor.execute('show block_size;')
    return cursor.fetchall()[0][0]
 
+# Returns all blocks from SQL query result
 def get_blocks(cursor, table_names, query):
-    pass
+    blocks_dict = {}
+    parse_query = Parser(query)
+    table_alias = parse_query.tables_aliases
+    #Swap key and value to usage later
+    table_alias = dict((v, k) for k, v in table_alias.items())
+    #print(table_alias)
+    tokens = [token.value for token in parse_query.tokens]
+    #print(tokens)
+
+    select_index = find_index_case_insensitive (tokens, 'select')
+    from_index = find_index_case_insensitive (tokens, 'from')
+    #print(select_index, from_index)
+    
+    # Remove select attributes and replace it with ctid
+    index_to_remove = [i for i in range(select_index+1, from_index)]
+    values_to_remove = []
+    for index in index_to_remove:
+        values_to_remove.append(tokens[index])
+    
+    for values in values_to_remove:
+        tokens.remove(values)
+
+    for table in table_names:
+        copy_token = tokens.copy()
+        # Use alias if exists
+        if table in table_alias:
+            copy_token.insert(1, f"{table_alias[table]}.ctid")
+        else:
+            copy_token.insert(1, f"{table}.ctid")
+        
+        modified_query =' '.join(copy_token)
+        #print(modified_query)
+        cursor.execute(modified_query)
+        blocks_list = cursor.fetchall()
+        blocks_list = [value[0].split(',')[0] for value in blocks_list]
+        blocks_list = [value.split('(')[-1] for value in blocks_list]
+        
+        #Eliminate duplicate blocks
+        blocks_list = list(dict.fromkeys(blocks_list))
+        #print(blocks_list)
+        blocks_dict[table] = blocks_list
+    
+    return blocks_dict
+
+# Returns contents inside of a block & tuple counts
+def get_block_content(cursor, block_num, table):
+    #print(block_num, table)
+    query = f"SELECT ctid, * FROM {table} WHERE (ctid::text::point)[0] = {block_num};"
+    cursor.execute(query)
+    contents = cursor.fetchall()
+
+    query = f'SELECT count(*) FROM {table} WHERE (ctid::text::point)[0] = {block_num};'
+    cursor.execute(query)
+    tuple_count = cursor.fetchall()
+    tuple_count = tuple_count[0][0]
+    #print(tuple_count)
+    return contents, tuple_count
 
 ######################
 ## Helper Functions ##
@@ -86,3 +144,11 @@ def recursive_plan_processor(qplan, result_list):
                 #print(f"{key} : {value}")
                 result_list.append({key : value})
             
+# Reutrns an index of a keyword regardless of case
+def find_index_case_insensitive(query, keyword):
+    #print(query, keyword)
+    for index, key in enumerate(query):
+        if key.lower() == keyword.lower():
+            return index
+    
+    return -1
