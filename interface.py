@@ -1,7 +1,8 @@
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QCheckBox
+from PyQt5.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QCheckBox, QScrollArea
 from explore import *
 from sql_metadata import Parser
+from functools import partial
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -62,8 +63,8 @@ class Ui_MainWindow(object):
 
     # Calls "Show Blocks" Pop up
     def fshow_blocks(self):
-        table_names = set()
-        query = "SELECT * from nation as n, customer;"
+        query = self.plainTextEdit.toPlainText() # Get input from text box
+        #query = "SELECT * from nation n, customer;"
         table_names = Parser(query).tables
         #print(table_names)
         print("show blocks")
@@ -136,19 +137,106 @@ class CheckBoxWindow(QDialog):
 
 class ShowBlocks(QDialog):
      def __init__(self, table_names, query):
-          super().__init__()
-          self.setWindowTitle("Show Blocks")
-          self.setGeometry(100, 100, 300, 600)
-          
-          # Get blocks of selected tables and query
-          db_connection, cursor = connect_to_db()
-          get_blocks(cursor, table_names, query)
-          close_db_connection(db_connection, cursor)
-          
-          #create layout to Block numbers in a scrollable area
-          layout = QVBoxLayout()
-          
+        super().__init__()
+        self.setWindowTitle("Show Blocks")
+        self.setGeometry(100, 100, 300, 600)
+        
+        # Get blocks of selected tables and query
+        db_connection, cursor = connect_to_db()
+        blocks = get_blocks(cursor, table_names, query)
+        close_db_connection(db_connection, cursor)
 
+        #create layout to Block numbers in a scrollable area
+        label = QtWidgets.QLabel("Click to view content", self)
+    
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        
+        swidget = QtWidgets.QWidget(scroll_area)
+        scroll_area.setWidget(swidget)
+        
+        layout = QVBoxLayout(swidget)
+        for table in table_names:
+            block_list = blocks[table]
+            for block in block_list:
+                button = QtWidgets.QPushButton(f" {table} : {block}")
+                button.clicked.connect(partial(self.show_block_contents, block, table))
+                layout.addWidget(button)
+        
+        swidget.setLayout(layout)
+        
+        main_layout = QVBoxLayout(self)
+        main_layout.addWidget(label)
+        main_layout.addWidget(scroll_area)
+        self.setLayout(main_layout)
+
+     def show_block_contents(self, block, table):
+         db_connection, cursor = connect_to_db()
+         contents, tuple_count = get_block_content(cursor, block, table)
+         close_db_connection(db_connection, cursor)
+         BlockContent(table, contents, tuple_count, block).exec_()
+         
+        
+class BlockContent(QDialog):
+    def __init__(self, table_names, blk_content, tuple_count, block_num):
+        super().__init__()
+        self.setWindowTitle("Block Contents")
+        self.setGeometry(100, 100, 1000, 300)
+
+        label = QtWidgets.QLabel(f"Number of records in Block : {block_num} of Table : {table_names} = {tuple_count}", self)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        
+        swidget = QtWidgets.QWidget(scroll_area)
+        scroll_area.setWidget(swidget)
+        
+        layout = QVBoxLayout(swidget)
+        for content in blk_content:
+            string_tuple = tuple(map(str, content))
+            string_tuple = ' '.join(string_tuple)
+            contents =  QtWidgets.QLabel(string_tuple)
+            layout.addWidget(contents)
+
+        swidget.setLayout(layout)
+        
+        main_layout = QVBoxLayout(self)
+        main_layout.addWidget(label)
+        main_layout.addWidget(scroll_area)
+        self.setLayout(main_layout)
+        
+        '''
+        self.setWindowTitle("Show Blocks")
+        self.setGeometry(100, 100, 300, 600)
+        
+        # Get blocks of selected tables and query
+        db_connection, cursor = connect_to_db()
+        blocks = get_blocks(cursor, table_names, query)
+        close_db_connection(db_connection, cursor)
+
+        #create layout to Block numbers in a scrollable area
+        label = QtWidgets.QLabel("Click to view content", self)
+    
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        
+        swidget = QtWidgets.QWidget(scroll_area)
+        scroll_area.setWidget(swidget)
+        
+        layout = QVBoxLayout(swidget)
+        for table in table_names:
+            block_list = blocks[table]
+            for block in block_list:
+                button = QtWidgets.QPushButton(f" {table} : {block}")
+                button.clicked.connect(partial(self.show_block_contents, block, table))
+                layout.addWidget(button)
+        
+        swidget.setLayout(layout)
+        
+        main_layout = QVBoxLayout(self)
+        main_layout.addWidget(label)
+        main_layout.addWidget(scroll_area)
+        self.setLayout(main_layout)
+        '''
           
 if __name__ == "__main__":
     import sys
