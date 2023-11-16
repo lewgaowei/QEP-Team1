@@ -37,6 +37,15 @@ def get_query_plan(cursor, query):
     recursive_plan_processor(plan[0][0][0], query_plan_list)
     return query_plan_list
 
+def get_query_plan_visualizer(cursor, query):
+    query_plan_list = []
+    modified_query = f"explain (analyze,buffers,verbose, format json) {query}"
+    cursor.execute(modified_query)
+    plan = cursor.fetchall()
+    
+    plan = plan[0][0][0]
+    return plan
+
 
 # Return Block/Buffer Hits
 def get_buffer_hits(cursor, query):

@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QCheckBox, QScrol
 from explore import *
 from sql_metadata import Parser
 from functools import partial
+from visualizer import *
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -84,21 +85,45 @@ class Ui_MainWindow(object):
             msg.setText("Can't connect to DB. Pls UPDATE \"db_config.json\" with correct credentials")  
         msg.exec_()
     
+    # # Draw Query Execution Plan
+    # def fqep(self):
+    #     db_connection, cursor = connect_to_db()
+    #     #print(db_connection, cursor)
+    #     msg = QMessageBox()
+    #     # if can connect to DB
+    #     if db_connection and cursor:
+    #         msg.setWindowTitle("Task Complete")
+    #         msg.setText("Draw execution plan HERE")
+    #         print(get_query_plan(cursor, "SELECT * from nation, customer;"))
+    #         close_db_connection(db_connection, cursor)
+    #     else:
+    #         msg.setWindowTitle("Task Fail")
+    #         msg.setText("Can't connect to DB. Pls UPDATE \"db_config.json\" with correct credentials")  
+    #     msg.exec_()
+    
     # Draw Query Execution Plan
     def fqep(self):
-        db_connection, cursor = connect_to_db()
-        #print(db_connection, cursor)
-        msg = QMessageBox()
-        # if can connect to DB
-        if db_connection and cursor:
-            msg.setWindowTitle("Task Complete")
-            msg.setText("Draw execution plan HERE")
-            print(get_query_plan(cursor, "SELECT * from nation, customer;"))
-            close_db_connection(db_connection, cursor)
-        else:
-            msg.setWindowTitle("Task Fail")
-            msg.setText("Can't connect to DB. Pls UPDATE \"db_config.json\" with correct credentials")  
-        msg.exec_()
+        try:
+            db_connection, cursor = connect_to_db()
+            #print(db_connection, cursor)
+            # if can connect to DB
+            if db_connection and cursor:
+                plan_list = get_query_plan_visualizer(cursor, "SELECT * from nation, customer;")
+                print(plan_list)
+                close_db_connection(db_connection, cursor)
+
+                # Generate the figure from the query plan
+                fig = create_and_draw_graph(plan_list)
+
+                # Add the figure to the PyQt5 canvas
+                self.add_matplotlib_canvas(fig)
+            else:
+                msg = QMessageBox()
+                msg.setWindowTitle("Task Fail")
+                msg.setText("Can't connect to DB. Pls UPDATE \"db_config.json\" with correct credentials")  
+                msg.exec_()
+        except Exception as e:
+            print(e)
     
 # Pop up window when "Show Blocks" is clicked
 class CheckBoxWindow(QDialog):
